@@ -12,6 +12,7 @@ const jdCookieNode = $.isNode() ? require('./jdCookie.js') : '';
 let allMessage = '';
 let myMap = new Map();
 let allBean = 0;
+let JinQibean="";
 //IOS等用户直接用NobyDa的jd cookie
 let cookiesArr = [], cookie = '';
 if ($.isNode()) {
@@ -32,6 +33,10 @@ if(!strcheckck){
 }
 if ($.isNode() && process.env.BOTShowTopNum) {
 	lnShowTop = parseInt(process.env.BOTShowTopNum);	
+}
+let lnShowJinQiNum = 5;
+if ($.isNode() && process.env.BOTShowJinQiNum) {
+	lnShowJinQiNum = parseInt(process.env.BOTShowTopNum);	
 }
 
 for (i = 0; i < cookiesArr.length; i++) {
@@ -112,6 +117,8 @@ async function showMsg() {
 		continue;
 	allMessage += "【" +value+"豆"+"】 "+key+'\n'
   }
+  if(JinQibean)
+	  allMessage += "\n\n【近期豆子】"+JinQibean;
 }
 function IsNumber(value) {
     intPerSent = parseInt(value);
@@ -130,14 +137,22 @@ async function bean() {
   // 今天0:0:0时间戳
   const tm1 = parseInt((Date.now() + 28800000) / 86400000) * 86400000 - 28800000;
   let page = 1, t = 0, todayArr = [];
+  var strtemp="";
   do {
     let response = await getJingBeanBalanceDetail(page);
-    // console.log(`第${page}页: ${JSON.stringify(response)}`);
+    //console.log(`第${page}页: ${JSON.stringify(response)}`);
     if (response && response.code === "0") {
       page++;
-      let detailList = response.detailList;
+      let detailList = response.jingDetailList;
       if (detailList && detailList.length > 0) {
         for (let item of detailList) {
+			if (lnShowJinQiNum-1>-1){
+				lnShowJinQiNum--;
+				strtemp=item.eventMassage;	  
+				strtemp=strtemp.replace("参加[","").replace("]-奖励","").replace("]店铺活动-奖励","");
+				JinQibean+="\n"+"【" +item.amount+"豆"+"】 "+item.date.split(" ")[1]+" "+strtemp+" "
+			}
+			
           const date = item.date.replace(/-/g, '/') + "+08:00";
           if (new Date(date).getTime() >= tm1 && (!item['eventMassage'].includes("退还")  && !item['eventMassage'].includes("物流") && !item['eventMassage'].includes('扣赠'))) {
             todayArr.push(item);
@@ -160,7 +175,7 @@ async function bean() {
       t = 1;
     }
   } while (t === 0);
-  var strtemp="";
+  
   for (let item of todayArr) {
     if (Number(item.amount) > 0) {
       $.todayIncomeBean += Number(item.amount);
@@ -232,11 +247,10 @@ function TotalBean() {
 function getJingBeanBalanceDetail(page) {
   return new Promise(async resolve => {
     const options = {
-      "url": `https://api.m.jd.com/client.action?functionId=getJingBeanBalanceDetail`,
+      "url": `https://bean.m.jd.com/beanDetail/detail.json?page=${page}`,
       "body": `body=${escape(JSON.stringify({"pageSize": "20", "page": page.toString()}))}&appid=ld`,
       "headers": {
-        'User-Agent': $.isNode() ? (process.env.JD_USER_AGENT ? process.env.JD_USER_AGENT : (require('./USER_AGENTS').USER_AGENT)) : ($.getdata('JDUA') ? $.getdata('JDUA') : "jdapp;iPhone;9.4.4;14.3;network/4g;Mozilla/5.0 (iPhone; CPU iPhone OS 14_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148;supportJDSHWK/1"),
-        'Host': 'api.m.jd.com',
+        'User-Agent': "Mozilla/5.0 (Linux; Android 12; SM-G9880) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Mobile Safari/537.36 EdgA/106.0.1370.47",       
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': cookie,
       }
